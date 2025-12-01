@@ -38,7 +38,7 @@ st.caption("Chat | Voice | Files | Memory | Web + RAG + Images | Multi-language"
 
 # -----------------------------
 # SERVER-SIDE API KEY
-api_key = os.getenv("OPENROUTER_API_KEY")  # <-- Key is stored in environment variable
+api_key = os.getenv("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")  # <-- Key is stored in environment variable
 if not api_key:
     st.error("OpenRouter API key is missing! Set OPENROUTER_API_KEY environment variable.")
 model_name = st.selectbox("Select Model", ["meta-llama/llama-3.1-8b-instruct",
