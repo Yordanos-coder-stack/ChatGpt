@@ -33,7 +33,7 @@ except:
 # -----------------------------
 # PAGE CONFIG
 st.set_page_config(page_title="AI Assistant Pro", page_icon="🤖", layout="wide")
-st.title("🤖 AI Assistant Pro")
+st.title(" AI Assistant Pro")
 st.caption("Chat | Voice | Files | Memory | Web + RAG + Images | Multi-language")
 
 # -----------------------------
@@ -80,7 +80,7 @@ def save_history():
 
 def ask_openrouter(messages, model=model_name):
     if not api_key:
-        return "❌ Enter your OpenRouter API key."
+        return "Enter your OpenRouter API key."
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     body = {"model": model, "messages": messages}
     try:
@@ -123,7 +123,7 @@ def voice_to_text():
         return None
     r = sr.Recognizer()
     with sr.Microphone() as source:
-        st.info("🎤 Speak now...")
+        st.info(" Speak now...")
         audio = r.listen(source)
     try:
         return r.recognize_google(audio)
@@ -203,7 +203,7 @@ if st.session_state.show_plus_menu:
 
 # -----------------------------
 # CHAT INPUT FORM
-st.subheader("💬 Chat with AI")
+st.subheader("Ask any questions")
 with st.form(key="chat_form", clear_on_submit=True):
     user_message = st.text_input("Type your message...", key="msg", placeholder="Write your question here...")
     submitted = st.form_submit_button("Send")
@@ -219,7 +219,7 @@ if submitted and user_message.strip():
     reply = ask_openrouter(messages, model_name)
     st.session_state.chat_history.append({"role":"assistant","content":reply})
 
-    st.write("🤖", reply)
+    st.write("", reply)
     if enable_voice:
         text_to_voice(reply)
     save_history()
@@ -237,7 +237,7 @@ if st.sidebar.button("Summarize Web Page"):
 
 # -----------------------------
 # SIDEBAR: COLLAPSIBLE CHAT HISTORY
-st.sidebar.subheader("💬 Chat History (click to expand)")
+st.sidebar.subheader("Chat History (click to expand)")
 
 # Prepare exchanges: group user->assistant messages
 history = st.session_state.get("chat_history", [])
