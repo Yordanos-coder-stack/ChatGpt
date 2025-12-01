@@ -1,0 +1,10 @@
+streamlit>=1.20.0
+requests>=2.28.0
+SpeechRecognition>=3.8.1
+gTTS>=2.3.0
+PyPDF2>=3.0.0
+# For microphone support on Windows, you may need `pyaudio` or install via `pipwin`:
+# pip install pipwin; pipwin install pyaudio
+# HTML parsing for website summarization
+beautifulsoup4>=4.12.2
+# pin exact versions if you need reproducible installs
