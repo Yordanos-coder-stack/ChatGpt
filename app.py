@@ -37,13 +37,14 @@ st.title("🤖 AI Assistant Pro")
 st.caption("Chat | Voice | Files | Memory | Web + RAG + Images | Multi-language")
 
 # -----------------------------
-# SIDEBAR SETTINGS
-st.sidebar.header("⚙️ Settings")
-api_key = st.sidebar.text_input("OpenRouter API Key:", type="password", key="api_key")
-model_name = st.sidebar.selectbox("Select Model", ["meta-llama/llama-3.1-8b-instruct",
-                                                   "qwen-7b", "mistral-7b-instruct"])
-dark_mode = st.sidebar.checkbox("Dark Mode", False)
-enable_voice = st.sidebar.checkbox("Enable Voice Output", True)
+# SERVER-SIDE API KEY
+api_key = os.getenv("OPENROUTER_API_KEY")  # <-- Key is stored in environment variable
+if not api_key:
+    st.error("OpenRouter API key is missing! Set OPENROUTER_API_KEY environment variable.")
+model_name = st.selectbox("Select Model", ["meta-llama/llama-3.1-8b-instruct",
+                                           "qwen-7b", "mistral-7b-instruct"])
+dark_mode = st.checkbox("Dark Mode", False)
+enable_voice = st.checkbox("Enable Voice Output", True)
 
 # -----------------------------
 # SESSION STATE
@@ -69,6 +70,12 @@ if "embedding_model" not in st.session_state:
 if "show_plus_menu" not in st.session_state:
     st.session_state.show_plus_menu = False
 
+if "active_chat" not in st.session_state:
+    st.session_state.active_chat = []
+
+if "form_counter" not in st.session_state:
+    st.session_state.form_counter = 0
+
 # -----------------------------
 # HELPER FUNCTIONS
 def save_history():
@@ -79,8 +86,6 @@ def save_history():
         pass
 
 def ask_openrouter(messages, model=model_name):
-    if not api_key:
-        return "❌ Enter your OpenRouter API key."
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     body = {"model": model, "messages": messages}
     try:
@@ -93,21 +98,16 @@ def ask_openrouter(messages, model=model_name):
         return offline_assistant(messages)
 
 def offline_assistant(messages):
-    """Local fallback assistant using file memory and chat history"""
     user_msg = messages[-1].get("content", "") if messages else ""
     response = ""
-
     if st.session_state.file_memory and HAS_RAG and st.session_state.vector_store:
         relevant = query_vector_store(user_msg)
         if relevant:
             response += f"Based on your uploaded file:\n{relevant}\n\n"
-
     if st.session_state.chat_history:
         response += "Based on previous conversation memory.\n"
-
     if not response:
         response = "⚠️ Cannot reach OpenRouter. Provide more context or upload a file."
-
     return response
 
 def extract_text_from_file(uploaded):
@@ -174,7 +174,7 @@ def summarize_website(url):
         return ""
 
 # -----------------------------
-# PLUS MENU BUTTON (outside form)
+# PLUS MENU BUTTON
 if st.button("➕"):
     st.session_state.show_plus_menu = not st.session_state.show_plus_menu
 
@@ -188,14 +188,12 @@ if st.session_state.show_plus_menu:
             st.session_state.file_memory = text
             add_to_vector_store(text)
             st.success("File uploaded and indexed!")
-
     elif choice == "Voice Input":
         if st.button("Start Voice Input"):
             voice_text = voice_to_text()
             if voice_text:
                 st.session_state.chat_history.append({"role":"user","content":voice_text})
                 st.success("Voice input added!")
-
     elif choice == "Image Generation":
         img_prompt = st.text_input("Enter image description:")
         if st.button("Generate Image"):
@@ -203,65 +201,28 @@ if st.session_state.show_plus_menu:
 
 # -----------------------------
 # CHAT INPUT FORM
-st.subheader("💬 Chat with AI")
-with st.form(key="chat_form", clear_on_submit=True):
-    user_message = st.text_input("Type your message...", key="msg", placeholder="Write your question here...")
+form_key = f"chat_form_{st.session_state.form_counter}"
+st.session_state.form_counter += 1
+
+with st.form(key=form_key, clear_on_submit=True):
+    user_message = st.text_input("Type your message...", key=f"msg_input_{form_key}", placeholder="Write your question here...")
     submitted = st.form_submit_button("Send")
 
 if submitted and user_message.strip():
     st.session_state.chat_history.append({"role":"user","content":user_message})
     messages = [{"role":"system","content":"You are a helpful AI assistant."}]
+    if st.session_state.active_chat:
+        messages.extend(st.session_state.active_chat)
     if st.session_state.file_memory:
         relevant = query_vector_store(user_message)
         context_text = f"User uploaded file content (relevant):\n{relevant}" if relevant else f"User uploaded file content:\n{st.session_state.file_memory}"
         messages.append({"role":"system","content":context_text})
-    messages.extend(st.session_state.chat_history)
+    messages.append({"role":"user","content":user_message})
     reply = ask_openrouter(messages, model_name)
     st.session_state.chat_history.append({"role":"assistant","content":reply})
-
+    st.session_state.active_chat.append({"role":"user","content":user_message})
+    st.session_state.active_chat.append({"role":"assistant","content":reply})
     st.write("🤖", reply)
     if enable_voice:
         text_to_voice(reply)
     save_history()
-
-# -----------------------------
-# SIDEBAR: WEB PAGE Q&A & HISTORY
-st.sidebar.subheader("🌐 Web Page Q&A")
-web_url = st.sidebar.text_input("Website URL:")
-if st.sidebar.button("Summarize Web Page"):
-    if web_url:
-        web_text = summarize_website(web_url)
-        if web_text:
-            st.session_state.chat_history.append({"role":"system","content":"Web page content:\n"+web_text})
-            st.sidebar.success("Web page added!")
-
-# -----------------------------
-# SIDEBAR: COLLAPSIBLE CHAT HISTORY
-st.sidebar.subheader("💬 Chat History (click to expand)")
-
-# Prepare exchanges: group user->assistant messages
-history = st.session_state.get("chat_history", [])
-exchanges = []
-i = 0
-while i < len(history):
-    item = history[i]
-    if item.get("role") == "user":
-        user_msg = item.get("content", "")
-        assistant_msg = ""
-        if i + 1 < len(history) and history[i+1].get("role") == "assistant":
-            assistant_msg = history[i+1].get("content", "")
-            i += 2
-        else:
-            i += 1
-        exchanges.append((user_msg, assistant_msg))
-    else:
-        i += 1
-
-# Show collapsed history by default
-for idx, (u_msg, a_msg) in enumerate(reversed(exchanges), start=1):
-    title = (u_msg[:50] + "...") if len(u_msg) > 50 else u_msg  # Short title
-    with st.sidebar.expander(f"Chat #{len(exchanges)-idx+1}: {title}", expanded=False):
-        st.markdown(f"**You:** {u_msg}")
-        if a_msg:
-            st.markdown(f"**Assistant:** {a_msg}")
-
