@@ -1,4 +1,5 @@
 # AI Assistant Pro - Streamlit App
+# Features:
 import streamlit as st
 import PyPDF2
 import os
